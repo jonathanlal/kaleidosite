@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { randomBrief } from '@/lib/random-brief'
-import { generateCrazyHtmlDetails } from '@/lib/openai'
+import { createSitePlan, buildSiteFromPlan, mergeUsage } from '@/lib/site-builder'
 import { saveHtmlById, setLatest, appendHistory, setLatestMeta, getRateLimit, getModel, getIncludeImage, getImagePrompt, setLatestLocal, appendHistoryLocal, setLatestMetaLocal } from '@/lib/edge-config'
 import { withLock, getCurrentRateCount, incrCurrentRate } from '@/lib/redis'
 
@@ -15,7 +14,7 @@ function newId() {
 
 export async function POST() {
   try {
-    const result = await withLock('lock:pregen', 60000, async () => {
+    const result = await withLock('lock:pregen', 120000, async () => {
       // Rate limit check (global per minute)
       const limit = await getRateLimit()
       if (limit && limit > 0) {
@@ -26,24 +25,32 @@ export async function POST() {
         await incrCurrentRate()
       }
       const id = newId()
-      const brief = randomBrief(id)
+      const planResult = await createSitePlan(id)
+      const plan = planResult.plan
       const model = (await getModel()) || undefined
       if (model) process.env.OPENAI_MODEL = model
       const includeImage = (await getIncludeImage()) || false
       const imagePrompt = (await getImagePrompt()) || undefined
-      const { html: raw, usage } = await generateCrazyHtmlDetails(brief, 'medium', id, includeImage, imagePrompt)
+      const { html: raw, usage: renderUsage } = await buildSiteFromPlan(plan, {
+        sizeHint: 'medium',
+        siteId: id,
+        includeImage,
+        imagePrompt,
+        embedControls: false,
+      })
       const html = minifyHtml(raw)
       await saveHtmlById(id, html)
       const ts = Date.now()
+      const usage = mergeUsage(planResult.usage, renderUsage)
       try {
         await setLatest(id, html, ts)
         await appendHistory(id, ts)
-        await setLatestMeta({ id, ts, brief, usage, model })
+        await setLatestMeta({ id, ts, brief: plan.summary, plan, usage, model })
       } catch {
         // Local fallback
         await setLatestLocal(id, html, ts)
         await appendHistoryLocal(id, ts)
-        await setLatestMetaLocal({ id, ts, brief, usage, model })
+        await setLatestMetaLocal({ id, ts, brief: plan.summary, plan, usage, model })
       }
       return { id, ts, usage }
     })
@@ -52,6 +59,7 @@ export async function POST() {
     }
     return NextResponse.json({ ok: true, ...result })
   } catch (e: any) {
+    console.error('[pregen] failed', e)
     return NextResponse.json({ ok: false, error: e?.message || 'pregen failed' }, { status: 500 })
   }
 }

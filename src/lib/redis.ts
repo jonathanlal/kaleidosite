@@ -1,8 +1,8 @@
 import { Redis } from '@upstash/redis'
 
 export function getRedis() {
-  const url = process.env.UPSTASH_REDIS_REST_URL
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN
   if (!url || !token) return null
   return new Redis({ url, token })
 }
@@ -37,7 +37,7 @@ export async function releaseLock(key: string, token?: string) {
   }
 }
 
-export async function withLock<T>(key: string, ttlMs: number, fn: () => Promise<T>, waitMs = 55000, pollMs = 1500): Promise<T> {
+export async function withLock<T>(key: string, ttlMs: number, fn: () => Promise<T>, waitMs = 115000, pollMs = 1500): Promise<T> {
   const start = Date.now()
   while (true) {
     const { ok, token } = await acquireLock(key, ttlMs)

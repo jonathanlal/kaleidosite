@@ -1,7 +1,6 @@
 import { getLatestHtml, getLatestId, getModel, getIncludeImage, getImagePrompt, setLatest, appendHistory, setLatestMeta, setLatestLocal, appendHistoryLocal, setLatestMetaLocal } from '@/lib/edge-config'
 import { withLock } from '@/lib/redis'
-import { randomBrief } from '@/lib/random-brief'
-import { generateCrazyHtmlDetails } from '@/lib/openai'
+import { createSitePlan, buildSiteFromPlan, mergeUsage } from '@/lib/site-builder'
 import { postProcessHtml } from '@/lib/postprocess'
 
 export const runtime = 'nodejs'
@@ -20,22 +19,29 @@ export async function GET(req: Request) {
   if (!html) {
     const result = await withLock('lock:pregen', 60000, async () => {
       const nid = newId()
-      const brief = randomBrief(nid)
+      const planResult = await createSitePlan(nid)
+      const plan = planResult.plan
       const model = (await getModel()) || undefined
       if (model) process.env.OPENAI_MODEL = model
       const includeImage = (await getIncludeImage()) || false
       const imagePrompt = (await getImagePrompt()) || undefined
-      const { html: raw, usage } = await generateCrazyHtmlDetails(brief, 'medium', nid, includeImage, imagePrompt)
-      const newHtml = postProcessHtml(raw, { id: nid, embedControls: false })
+      const { html: newHtml, usage: renderUsage } = await buildSiteFromPlan(plan, {
+        sizeHint: 'medium',
+        siteId: nid,
+        includeImage,
+        imagePrompt,
+        embedControls: false,
+      })
       const ts = Date.now()
+      const usage = mergeUsage(planResult.usage, renderUsage)
       try {
         await setLatest(nid, newHtml, ts)
         await appendHistory(nid, ts)
-        await setLatestMeta({ id: nid, ts, brief, usage, model })
+        await setLatestMeta({ id: nid, ts, brief: plan.summary, plan, usage, model })
       } catch {
         await setLatestLocal(nid, newHtml, ts)
         await appendHistoryLocal(nid, ts)
-        await setLatestMetaLocal({ id: nid, ts, brief, usage, model })
+        await setLatestMetaLocal({ id: nid, ts, brief: plan.summary, plan, usage, model })
       }
       return { id: nid, html: newHtml }
     })

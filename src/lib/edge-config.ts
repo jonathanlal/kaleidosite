@@ -34,20 +34,25 @@ export async function saveHtmlById(id: string, html: string): Promise<void> {
     ],
   }
 
-  const res = await fetch(`https://api.vercel.com/v1/edge-config/${configId}/items`, {
-    method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-    // Writes must happen in Node.js runtime, not Edge
-    cache: 'no-store',
-  })
+  try {
+    const res = await fetch(`https://api.vercel.com/v1/edge-config/${configId}/items`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      // Writes must happen in Node.js runtime, not Edge
+      cache: 'no-store',
+    })
 
-  if (!res.ok) {
-    const msg = await res.text()
-    throw new Error(`Edge Config write failed: ${res.status} ${res.statusText} ${msg}`)
+    if (!res.ok) {
+      const msg = await res.text()
+      throw new Error(`Edge Config write failed: ${res.status} ${res.statusText} ${msg}`)
+    }
+  } catch (err) {
+    console.error('[edge-config] saveHtmlById fallback', err)
+    await localSet(`site_${id}`, html)
   }
 }
 
