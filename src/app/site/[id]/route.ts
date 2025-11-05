@@ -14,7 +14,11 @@ function ensureFooterWithId(html: string, id?: string) {
 
 export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
-  const blobUrl = `${process.env.BLOB_URL}/kaleidosite/site_${id}.html`;
+  const blobUrlBase = process.env.BLOB_URL;
+  if (!blobUrlBase) {
+    throw new Error("BLOB_URL environment variable is not set.");
+  }
+  const blobUrl = `${blobUrlBase}/kaleidosite/site_${id}.html`;
   const response = await fetch(blobUrl);
   if (!response.ok) return new Response('Not found', { status: 404 })
   const html = await response.text();

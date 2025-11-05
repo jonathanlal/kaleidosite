@@ -15,7 +15,11 @@ function newId() {
 }
 
 export async function GET(req: Request) {
-  const blobUrl = `${process.env.BLOB_URL}/kaleidosite/latest.html`;
+  const blobUrlBase = process.env.BLOB_URL;
+  if (!blobUrlBase) {
+    throw new Error("BLOB_URL environment variable is not set.");
+  }
+  const blobUrl = `${blobUrlBase}/kaleidosite/latest.html`;
   let response = await fetch(blobUrl);
   let html = response.ok ? await response.text() : null;
   
@@ -52,7 +56,11 @@ export async function GET(req: Request) {
     id = result.id
   } else {
     // get id from latest_meta.json
-    const metaUrl = `${process.env.BLOB_URL}/kaleidosite/latest_meta.json`;
+    const blobUrlBase = process.env.BLOB_URL;
+    if (!blobUrlBase) {
+      throw new Error("BLOB_URL environment variable is not set.");
+    }
+    const metaUrl = `${blobUrlBase}/kaleidosite/latest_meta.json`;
     const metaResponse = await fetch(metaUrl);
     if (metaResponse.ok) {
       const meta = await metaResponse.json();
