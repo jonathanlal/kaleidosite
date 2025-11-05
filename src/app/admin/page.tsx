@@ -5,12 +5,10 @@ import {
   getHistory,
   getRateLimit,
   getModel,
-  getLatestId,
-  getLatestTs,
-  getLatestMetaValue,
   getIncludeImage,
   getImagePrompt,
 } from '@/lib/edge-config'
+import { getLatestMeta } from '@/lib/data'
 import { getCurrentRateCount } from '@/lib/redis'
 
 export const dynamic = 'force-dynamic'
@@ -24,17 +22,18 @@ export default async function AdminPage() {
     if (auth !== token) return notFound()
   }
 
-  const [latestId, latestTs, history, limit, count, latestMeta, model, includeImage, imagePrompt] = await Promise.all([
-    getLatestId(),
-    getLatestTs(),
+  const latestMeta = await getLatestMeta<any>();
+  const latestId = latestMeta?.id;
+  const latestTs = latestMeta?.ts;
+
+  const [history, limit, count, model, includeImage, imagePrompt] = await Promise.all([
     getHistory(),
     getRateLimit(),
     getCurrentRateCount(),
-    getLatestMetaValue<any>(),
     getModel(),
     getIncludeImage(),
     getImagePrompt(),
-  ])
+  ]);
 
   return (
     <main className="max-w-6xl mx-auto px-4">

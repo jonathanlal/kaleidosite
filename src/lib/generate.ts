@@ -1,11 +1,11 @@
-import { saveHtmlById } from './edge-config'
+import { uploadHtml } from './blob'
 import { createSitePlan, buildSiteFromPlan } from './site-builder'
 
 export async function generateAndStore(id: string): Promise<{ id: string; html: string; brief: string }> {
   const planResult = await createSitePlan(id)
   const { html: raw } = await buildSiteFromPlan(planResult.plan, { sizeHint: 'medium', siteId: id })
   const html = minifyHtml(raw)
-  await saveHtmlById(id, html)
+  await uploadHtml(`site_${id}`, html)
   return { id, html, brief: planResult.plan.summary }
 }
 
