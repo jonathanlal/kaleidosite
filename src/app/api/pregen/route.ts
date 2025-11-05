@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createSitePlan, buildSiteFromPlan, mergeUsage } from '@/lib/site-builder'
 import { getRateLimit, getModel, getIncludeImage, getImagePrompt } from '@/lib/edge-config'
-import { withLock, getCurrentRateCount, incrCurrentRate } from '@/lib/redis'
+import { withLock, getCurrentRateCount, incrCurrentRate, getRedis } from '@/lib/redis'
 import { uploadHtml, uploadJson } from '@/lib/blob'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+const PREGEN_QUEUE_KEY = 'pregen_queue';
 
 function newId() {
   // @ts-ignore
@@ -40,15 +42,20 @@ export async function POST() {
         embedControls: false,
       })
       const html = minifyHtml(raw)
-      await uploadHtml(`site_${id}`, html)
+      await uploadHtml(`site_${id}.html`, html)
       const ts = Date.now()
       const usage = mergeUsage(planResult.usage, renderUsage)
       const meta = { id, ts, brief: plan.summary, plan, usage, model }
-      await uploadJson(`site_${id}_meta`, meta)
+      await uploadJson(`site_${id}_meta.json`, meta)
 
       // Set this as the latest generation
-      await uploadJson('latest_meta', meta)
-      await uploadHtml('latest', html)
+      await uploadJson('latest_meta.json', meta)
+      await uploadHtml('latest.html', html)
+
+      const redis = getRedis();
+      if (redis) {
+        await redis.lpush(PREGEN_QUEUE_KEY, id);
+      }
 
       return { id, ts, usage }
     })

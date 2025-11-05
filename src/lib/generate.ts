@@ -5,7 +5,7 @@ export async function generateAndStore(id: string): Promise<{ id: string; html: 
   const planResult = await createSitePlan(id)
   const { html: raw } = await buildSiteFromPlan(planResult.plan, { sizeHint: 'medium', siteId: id })
   const html = minifyHtml(raw)
-  await uploadHtml(`site_${id}`, html)
+  await uploadHtml(`site_${id}.html`, html)
   return { id, html, brief: planResult.plan.summary }
 }
 

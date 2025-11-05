@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import { getModel, getIncludeImage, getImagePrompt } from '@/lib/edge-config'
-import { withLock } from '@/lib/redis'
+import { withLock, getRedis } from '@/lib/redis'
 import { createSitePlan, buildSiteFromPlan, mergeUsage } from '@/lib/site-builder'
-import { postProcessHtml } from '@/lib/postprocess'
 import { uploadHtml, uploadJson } from '@/lib/blob'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+const PREGEN_QUEUE_KEY = 'pregen_queue';
 
 function newId() {
   // @ts-ignore
@@ -14,18 +15,7 @@ function newId() {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
 }
 
-export async function GET(req: Request) {
-  const blobUrlBase = process.env.BLOB_URL;
-  if (!blobUrlBase) {
-    throw new Error("BLOB_URL environment variable is not set.");
-  }
-  const blobUrl = `${blobUrlBase}/kaleidosite/latest.html`;
-  let response = await fetch(blobUrl);
-  let html = response.ok ? await response.text() : null;
-  
-  let id: string | null = null;
-
-  if (!html) {
+async function generateAndServe(req: Request) {
     const result = await withLock('lock:pregen', 120000, async () => {
       const nid = newId()
       const planResult = await createSitePlan(nid)
@@ -45,31 +35,29 @@ export async function GET(req: Request) {
       const usage = mergeUsage(planResult.usage, renderUsage)
       const meta = { id: nid, ts, brief: plan.summary, plan, usage, model };
       
-      await uploadHtml(`site_${nid}`, newHtml);
-      await uploadJson(`site_${nid}_meta`, meta);
-      await uploadJson('latest_meta', meta);
-      await uploadHtml('latest', newHtml);
+      await uploadHtml(`site_${nid}.html`, newHtml);
+      await uploadJson(`site_${nid}_meta.json`, meta);
+      
+      // Also trigger background generation to fill the queue
+      fetch(new URL('/api/background-gen', req.url), { method: 'POST' });
 
       return { id: nid, html: newHtml }
     })
-    html = result.html
-    id = result.id
-  } else {
-    // get id from latest_meta.json
-    const blobUrlBase = process.env.BLOB_URL;
-    if (!blobUrlBase) {
-      throw new Error("BLOB_URL environment variable is not set.");
-    }
-    const metaUrl = `${blobUrlBase}/kaleidosite/latest_meta.json`;
-    const metaResponse = await fetch(metaUrl);
-    if (metaResponse.ok) {
-      const meta = await metaResponse.json();
-      id = meta.id;
+    
+    return NextResponse.redirect(new URL(`/site/${result.id}`, req.url));
+}
+
+export async function GET(req: Request) {
+  const redis = getRedis();
+  if (redis) {
+    const siteId = await redis.rpop(PREGEN_QUEUE_KEY);
+    if (siteId) {
+      // Trigger a background generation
+      fetch(new URL('/api/background-gen', req.url), { method: 'POST' });
+      // Redirect to the pre-generated site
+      return NextResponse.redirect(new URL(`/site/${siteId}`, req.url));
     }
   }
 
-  const body = postProcessHtml(html!, { id: id || undefined, embedControls: true })
-  return new Response(body, {
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
-  })
+  return generateAndServe(req);
 }

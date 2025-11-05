@@ -36,7 +36,7 @@ export async function uploadHtml(name: string, html: string): Promise<string | n
   const token = getBlobToken()
   if (!token) return null
   try {
-    const result = await put(`kaleidosite/${name}.html`, html, {
+    const result = await put(`kaleidosite/${name}`, html, {
       access: 'public',
       contentType: 'text/html; charset=utf-8',
       addRandomSuffix: false,

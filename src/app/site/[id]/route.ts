@@ -12,7 +12,7 @@ function ensureFooterWithId(html: string, id?: string) {
   return `${html}${footer}`
 }
 
-export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(_: Request, ctx: { params: Promise<{ id:string }> }) {
   const { id } = await ctx.params
   const blobUrlBase = process.env.BLOB_URL;
   if (!blobUrlBase) {
