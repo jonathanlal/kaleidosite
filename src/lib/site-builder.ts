@@ -470,13 +470,20 @@ export async function buildSiteFromPlan(plan: SitePlan, options: BuildOptions = 
   }
 
   const sectionBudget = Math.max(600, Math.round(sizeTokens / Math.max(plan.sections.length, 1)) + 300)
+
+  const sectionPromises = plan.sections.map((section, i) =>
+    generateSectionContent(plan, section, i, plan.sections.length, sectionBudget)
+  )
+
+  const sectionResults = await Promise.all(sectionPromises)
+
   const sectionHtml: string[] = []
   const sectionUsages: GenUsage[] = []
 
-  for (let i = 0; i < plan.sections.length; i++) {
-    const { html, usage } = await generateSectionContent(plan, plan.sections[i], i, plan.sections.length, sectionBudget)
+  sectionResults.forEach((result, i) => {
+    const { html, usage } = result
     if (usage) sectionUsages.push(usage)
-    if (!html) continue
+    if (!html) return
     sectionHtml.push(
       `<section id="${plan.sections[i].id}" class="section-block" aria-labelledby="heading-${plan.sections[i].id}">
         <div class="section-inner">
@@ -484,7 +491,7 @@ export async function buildSiteFromPlan(plan: SitePlan, options: BuildOptions = 
         </div>
       </section>`
     )
-  }
+  })
 
   const nav = plan.sections
     .map((section) => `<a class="nav-link" href="#${section.id}">${section.title}</a>`)
