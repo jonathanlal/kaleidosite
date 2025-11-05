@@ -1,5 +1,4 @@
-﻿import { getHtmlById } from '@/lib/edge-config'
-import { postProcessHtml } from '@/lib/postprocess'
+﻿import { postProcessHtml } from '@/lib/postprocess'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -15,7 +14,10 @@ function ensureFooterWithId(html: string, id?: string) {
 
 export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
-  const html = await getHtmlById(id)
+  const blobUrl = `${process.env.BLOB_URL}/kaleidosite/site_${id}.html`;
+  const response = await fetch(blobUrl);
+  if (!response.ok) return new Response('Not found', { status: 404 })
+  const html = await response.text();
   if (!html) return new Response('Not found', { status: 404 })
   const body = postProcessHtml(html, { id, embedControls: false })
   const csp = [

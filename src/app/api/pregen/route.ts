@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createSitePlan, buildSiteFromPlan, mergeUsage } from '@/lib/site-builder'
-import { saveHtmlById, setLatest, appendHistory, setLatestMeta, getRateLimit, getModel, getIncludeImage, getImagePrompt, setLatestLocal, appendHistoryLocal, setLatestMetaLocal } from '@/lib/edge-config'
+import { getRateLimit, getModel, getIncludeImage, getImagePrompt } from '@/lib/edge-config'
 import { withLock, getCurrentRateCount, incrCurrentRate } from '@/lib/redis'
+import { uploadHtml, uploadJson } from '@/lib/blob'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -39,19 +40,16 @@ export async function POST() {
         embedControls: false,
       })
       const html = minifyHtml(raw)
-      await saveHtmlById(id, html)
+      await uploadHtml(`site_${id}`, html)
       const ts = Date.now()
       const usage = mergeUsage(planResult.usage, renderUsage)
-      try {
-        await setLatest(id, html, ts)
-        await appendHistory(id, ts)
-        await setLatestMeta({ id, ts, brief: plan.summary, plan, usage, model })
-      } catch {
-        // Local fallback
-        await setLatestLocal(id, html, ts)
-        await appendHistoryLocal(id, ts)
-        await setLatestMetaLocal({ id, ts, brief: plan.summary, plan, usage, model })
-      }
+      const meta = { id, ts, brief: plan.summary, plan, usage, model }
+      await uploadJson(`site_${id}_meta`, meta)
+
+      // Set this as the latest generation
+      await uploadJson('latest_meta', meta)
+      await uploadHtml('latest', html)
+
       return { id, ts, usage }
     })
     if ((result as any)?.rateLimited) {

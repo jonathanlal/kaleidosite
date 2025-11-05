@@ -32,3 +32,36 @@ export async function uploadImageFromBase64(name: string, base64: string): Promi
   }
 }
 
+export async function uploadHtml(name: string, html: string): Promise<string | null> {
+  const token = getBlobToken()
+  if (!token) return null
+  try {
+    const result = await put(`kaleidosite/${name}.html`, html, {
+      access: 'public',
+      contentType: 'text/html; charset=utf-8',
+      addRandomSuffix: false,
+      token,
+    })
+    return result.url
+  } catch (err) {
+    console.error('[blob] html upload failed', err)
+    return null
+  }
+}
+
+export async function uploadJson(name: string, data: any): Promise<string | null> {
+  const token = getBlobToken()
+  if (!token) return null
+  try {
+    const result = await put(`kaleidosite/${name}.json`, JSON.stringify(data), {
+      access: 'public',
+      contentType: 'application/json',
+      addRandomSuffix: false,
+      token,
+    })
+    return result.url
+  } catch (err) {
+    console.error('[blob] json upload failed', err)
+    return null
+  }
+}
