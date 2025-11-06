@@ -1,6 +1,6 @@
 import { uploadHtml, uploadJson } from './blob'
 import { createSitePlan, buildSiteFromPlan, mergeUsage } from './site-builder'
-import { getModel, getIncludeImage, getImagePrompt } from './edge-config'
+import { getModel, getIncludeImage } from './edge-config'
 
 export async function generateAndStore(id: string): Promise<{ id: string; html: string; brief: string }> {
   const planResult = await createSitePlan(id)
@@ -10,13 +10,11 @@ export async function generateAndStore(id: string): Promise<{ id: string; html: 
   const model = (await getModel()) || undefined
   if (model) process.env.OPENAI_MODEL = model
   const includeImage = (await getIncludeImage()) || false
-  const imagePrompt = (await getImagePrompt()) || undefined
 
   const { html: raw, usage: renderUsage } = await buildSiteFromPlan(plan, {
     sizeHint: 'medium',
     siteId: id,
     includeImage,
-    imagePrompt,
     embedControls: false,
   })
 
