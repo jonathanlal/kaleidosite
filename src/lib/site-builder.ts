@@ -240,10 +240,10 @@ export async function createSitePlan(seed: string, hint?: string): Promise<SiteP
 
   const response = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
-    temperature: 1.6,
+    temperature: 1.8,
     top_p: 0.95,
-    frequency_penalty: 1.2,
-    presence_penalty: 1.0,
+    frequency_penalty: 1.3,
+    presence_penalty: 1.1,
     response_format: { type: 'json_object' },
     messages: [
       {
@@ -252,7 +252,7 @@ export async function createSitePlan(seed: string, hint?: string): Promise<SiteP
       },
       {
         role: 'user',
-        content: `Seed: ${seed}\n\nCreate an EXTRAORDINARY, UNIQUE single-page experience that's COMPLETELY DIFFERENT from anything you've created before. Push creative boundaries to the MAX. ${hint || 'Surprise me with something wild, unexpected, and feature-rich!'}\n\nReturn ONLY valid JSON matching the schema.`,
+        content: `Seed: ${seed}\n\nCreate an EXTRAORDINARY, VISUALLY DYNAMIC single-page experience that's COMPLETELY DIFFERENT from anything you've created before. Use unconventional layouts, asymmetric designs, overlapping elements, and dramatic visual hierarchy. Plan for scroll animations, parallax effects, and interactive elements. ${hint || 'Surprise me with something wild, unexpected, feature-rich, and VISUALLY STUNNING!'}\n\nReturn ONLY valid JSON matching the schema.`,
       },
     ],
   })
@@ -313,7 +313,7 @@ async function generateSectionContent(
         },
         null,
         2,
-      ) + '\n\nCreate an EXCEPTIONAL, feature-rich section that implements ALL the features and interactive elements listed. Push creative boundaries!',
+      ) + '\n\nCreate a VISUALLY DYNAMIC, HIGHLY INTERACTIVE section that implements ALL the features listed. Use dramatic spacing, overlapping elements, scroll animations, and advanced Tailwind utilities. Make it MEMORABLE and STUNNING - push creative boundaries to the absolute limit!',
     },
   ]
 
@@ -322,7 +322,10 @@ async function generateSectionContent(
     model,
     messages,
     max_tokens: tokenBudget,
-    temperature: 1.1,
+    temperature: 1.4,
+    top_p: 0.95,
+    frequency_penalty: 0.8,
+    presence_penalty: 0.6,
   })
 
   const html = chat.choices?.[0]?.message?.content?.trim() || ''
