@@ -30,6 +30,8 @@ export type SitePlan = {
   motif: string
   palette: SitePalette
   sections: SiteSectionPlan[]
+  includeHeader?: boolean
+  layoutStyle?: string
 }
 
 export type SitePlanResult = {
@@ -185,6 +187,8 @@ export async function createSitePlan(seed: string, hint?: string): Promise<SiteP
       slogan: { type: 'string' },
       vibe: { type: 'string' },
       motif: { type: 'string' },
+      includeHeader: { type: 'boolean' },
+      layoutStyle: { type: 'string' },
       palette: {
         type: 'object',
         additionalProperties: false,
@@ -201,8 +205,8 @@ export async function createSitePlan(seed: string, hint?: string): Promise<SiteP
       },
       sections: {
         type: 'array',
-        minItems: 5,
-        maxItems: 8,
+        minItems: 6,
+        maxItems: 10,
         items: {
           type: 'object',
           additionalProperties: false,
@@ -212,12 +216,12 @@ export async function createSitePlan(seed: string, hint?: string): Promise<SiteP
             purpose: { type: 'string' },
             features: {
               type: 'array',
-              minItems: 2,
+              minItems: 3,
               items: { type: 'string' },
             },
             interactive: {
               type: 'array',
-              minItems: 1,
+              minItems: 2,
               items: { type: 'string' },
             },
           },
@@ -225,22 +229,31 @@ export async function createSitePlan(seed: string, hint?: string): Promise<SiteP
         },
       },
     },
-    required: ['summary', 'slogan', 'vibe', 'motif', 'palette', 'sections'],
+    required: ['summary', 'slogan', 'vibe', 'motif', 'palette', 'sections', 'includeHeader', 'layoutStyle'],
   }
 
   const response = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
-    temperature: 1.2,
+    temperature: 1.4,
     response_format: { type: 'json_object' },
     messages: [
       {
         role: 'system',
         content:
-          'You are a daring site planning agent. Craft an over-the-top but coherent plan for a single-page website. Include a hero section followed by distinct sections with unique goals, features, and interactive ideas. Themes should feel fresh, colour palettes vibrant but sensible. Respond with a JSON object that conforms to the following schema, and nothing else. Do not include markdown fences or any other text outside of the JSON object. The schema is: ' + JSON.stringify(schema),
+          'You are an avant-garde web experience architect with unlimited creativity. Design WILDLY IMAGINATIVE, feature-rich single-page websites that push boundaries. Each site should be COMPLETELY DIFFERENT with unique themes, layouts, and interactions.\n\n' +
+          'CRITICAL RULES:\n' +
+          '- Make sites COMPLEX and FEATURE-PACKED (6-10 sections minimum)\n' +
+          '- Each section needs 3+ unique features and 2+ interactive elements\n' +
+          '- 40% of sites should have NO HEADER (includeHeader: false) for variety\n' +
+          '- Vary layoutStyle dramatically: "experimental", "minimalist", "maximalist", "brutalist", "glassmorphic", "retro", "futuristic", "organic", "geometric"\n' +
+          '- Use BOLD, unexpected color palettes - no defaults!\n' +
+          '- Include diverse section types: galleries, timelines, comparison tables, pricing grids, testimonials, interactive demos, data visualizations, quizzes, animations, parallax effects, etc.\n' +
+          '- Make each site feel like a completely unique artistic creation\n\n' +
+          'Schema: ' + JSON.stringify(schema),
       },
       {
         role: 'user',
-        content: `Seed: ${seed}\nFocus: ${hint || 'Design a wildly imaginative experience that feels handcrafted and interactive.'}\nReturn JSON that matches the provided schema exactly.`,
+        content: `Seed: ${seed}\n\nCreate an EXTRAORDINARY single-page experience. Push creative boundaries. Make it unlike anything else. ${hint || 'Surprise me with something completely unexpected and feature-rich!'}\n\nReturn ONLY valid JSON matching the schema.`,
       },
     ],
   })
@@ -268,19 +281,25 @@ async function generateSectionContent(
   const openai = requireOpenAI()
   const hints: string[] = []
   if (index === 0) {
-    hints.push('This is the hero section. Include a commanding headline, supporting copy, a primary CTA, and the literal comment <!-- KALEIDOSITE_AI_IMAGE_SLOT --> where a hero visual should appear.')
+    hints.push('This is the HERO section - make it SPECTACULAR! Must include: a bold headline with animation, compelling subtext, multiple CTAs with hover effects, background gradients/animations, and the literal comment <!-- KALEIDOSITE_AI_IMAGE_SLOT --> for imagery. Add scroll indicators, floating elements, or particle effects for extra polish.')
   } else {
-    hints.push('Bridge naturally from the previous section and set up excitement for what follows.')
+    hints.push('Create a seamless transition from the previous section. Add visual interest and maintain engagement.')
   }
   if (!section.interactive.length) {
-    section.interactive.push('Add tasteful hover/tap interactions on key interactive elements')
+    section.interactive.push('Add hover/tap interactions', 'Include smooth animations or transitions')
   }
 
   const messages = [
     {
       role: 'system' as const,
       content:
-        'You are an elite front-end section designer. Output only HTML markup that will live inside a <section>. Avoid wrapping in <section> yourself. You may include inline <style> or <script> tags if necessary. Use semantic elements, accessible labels, and progressive enhancement. No external resources.',
+        'You are a MASTER front-end designer creating cutting-edge, feature-rich web sections. Output ONLY HTML markup (no wrapping <section> tags). You MUST include inline <style> and/or <script> tags to create:\n\n' +
+        '- Rich interactive elements (buttons, forms, sliders, toggles, animations)\n' +
+        '- Advanced CSS (gradients, transforms, transitions, keyframe animations, grid/flexbox layouts)\n' +
+        '- JavaScript for interactivity (click handlers, animations, data visualization, dynamic effects)\n' +
+        '- Creative layouts (cards, grids, timelines, comparison tables, galleries, tabs, accordions)\n' +
+        '- Micro-interactions and delightful UX details\n\n' +
+        'Make each section visually STUNNING and HIGHLY INTERACTIVE. Use the palette colors creatively. No external resources - everything inline.',
     },
     {
       role: 'user' as const,
@@ -291,13 +310,14 @@ async function generateSectionContent(
           palette: plan.palette,
           vibe: plan.vibe,
           motif: plan.motif,
+          layoutStyle: plan.layoutStyle,
           section,
           position: { index, total },
           hints,
         },
         null,
         2,
-      ),
+      ) + '\n\nCreate an EXCEPTIONAL, feature-rich section that implements ALL the features and interactive elements listed. Push creative boundaries!',
     },
   ]
 
@@ -306,7 +326,7 @@ async function generateSectionContent(
     model,
     messages,
     max_tokens: tokenBudget,
-    temperature: 0.9,
+    temperature: 1.1,
   })
 
   const html = chat.choices?.[0]?.message?.content?.trim() || ''
@@ -378,24 +398,45 @@ header.site-header {
   gap: 18px;
 }
 .brand {
-  font-size: clamp(1.2rem, 2.3vw, 1.65rem);
+  font-size: clamp(1rem, 2vw, 1.4rem);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+  flex-shrink: 0;
 }
 nav.site-nav {
   display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
+  gap: 12px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.3) transparent;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 0;
+  max-width: 100%;
+}
+nav.site-nav::-webkit-scrollbar {
+  height: 6px;
+}
+nav.site-nav::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.3);
+  border-radius: 3px;
 }
 .nav-link {
-  padding: 9px 16px;
+  padding: 8px 14px;
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.18);
   background: rgba(255,255,255,0.06);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .nav-link:hover,
 .nav-link:focus-visible {
@@ -497,6 +538,18 @@ export async function buildSiteFromPlan(plan: SitePlan, options: BuildOptions = 
     .map((section) => `<a class="nav-link" href="#${section.id}">${section.title}</a>`)
     .join('\n')
 
+  const headerHtml = plan.includeHeader !== false ? `
+  <header class="site-header" role="banner">
+    <div class="header-inner">
+      <div class="brand">${plan.slogan}</div>
+      <nav class="site-nav" aria-label="Primary">
+        ${nav}
+      </nav>
+    </div>
+  </header>` : ''
+
+  const mainTopPadding = plan.includeHeader !== false ? '36px' : '72px'
+
   const document = `<!doctype html>
 <html lang="en">
 <head>
@@ -506,21 +559,13 @@ export async function buildSiteFromPlan(plan: SitePlan, options: BuildOptions = 
   <style>${buildCss(plan.palette)}</style>
 </head>
 <body>
-  <a class="skip-link" href="#main">Skip to content</a>
-  <header class="site-header" role="banner">
-    <div class="header-inner">
-      <div class="brand">${plan.slogan}</div>
-      <nav class="site-nav" aria-label="Primary">
-        ${nav}
-      </nav>
-    </div>
-  </header>
-  <main id="main" tabindex="-1">
+  <a class="skip-link" href="#main">Skip to content</a>${headerHtml}
+  <main id="main" tabindex="-1" style="padding-top: ${mainTopPadding};">
     ${sectionHtml.join('\n')}
   </main>
   <footer class="site-footer">
     <p>${plan.summary}</p>
-    <small>Seed: ${plan.seed}</small>
+    <small>Seed: ${plan.seed} | Layout: ${plan.layoutStyle || 'default'}</small>
   </footer>
 </body>
 </html>`
