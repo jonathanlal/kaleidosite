@@ -61,7 +61,7 @@ function ensurePlan(plan: SitePlan): SitePlan {
   const safePlan: SitePlan = {
     seed: plan.seed || `seed-${Date.now()}`,
     summary: plan.summary || 'A wildly imaginative single-page experience packed with stories, interactions, and surprises.',
-    slogan: plan.slogan || 'Kaleidosite presents',
+    slogan: plan.slogan || 'KaleidoVibe',
     vibe: plan.vibe || 'Playful, confident, and a bit surreal',
     motif: plan.motif || 'Layered gradients, floating particles, and delightful micro-interactions',
     palette: {
@@ -205,8 +205,8 @@ export async function createSitePlan(seed: string, hint?: string): Promise<SiteP
       },
       sections: {
         type: 'array',
-        minItems: 6,
-        maxItems: 10,
+        minItems: 3,
+        maxItems: 5,
         items: {
           type: 'object',
           additionalProperties: false,
@@ -242,12 +242,13 @@ export async function createSitePlan(seed: string, hint?: string): Promise<SiteP
         content:
           'You are an avant-garde web experience architect with unlimited creativity. Design WILDLY IMAGINATIVE, feature-rich single-page websites that push boundaries. Each site should be COMPLETELY DIFFERENT with unique themes, layouts, and interactions.\n\n' +
           'CRITICAL RULES:\n' +
-          '- Make sites COMPLEX and FEATURE-PACKED (6-10 sections minimum)\n' +
+          '- Make sites COMPLEX and FEATURE-PACKED (3-5 sections)\n' +
           '- Each section needs 3+ unique features and 2+ interactive elements\n' +
           '- 40% of sites should have NO HEADER (includeHeader: false) for variety\n' +
           '- Vary layoutStyle dramatically: "experimental", "minimalist", "maximalist", "brutalist", "glassmorphic", "retro", "futuristic", "organic", "geometric"\n' +
           '- Use BOLD, unexpected color palettes - no defaults!\n' +
           '- Include diverse section types: galleries, timelines, comparison tables, pricing grids, testimonials, interactive demos, data visualizations, quizzes, animations, parallax effects, etc.\n' +
+          '- IMPORTANT: slogan must be a SHORT COMPOUND WORD (e.g., "NeonPulse", "CyberBloom", "QuantumVibe", "EchoFlux") - NOT a sentence!\n' +
           '- Make each site feel like a completely unique artistic creation\n\n' +
           'Schema: ' + JSON.stringify(schema),
       },
@@ -492,6 +493,7 @@ export async function buildSiteFromPlan(plan: SitePlan, options: BuildOptions = 
 
   let imageSrc: string | undefined
   if (includeImage) {
+    console.log('[site-builder] Image generation requested for', siteId)
     try {
       const response = await requireOpenAI().images.generate({
         model: IMAGE_MODEL,
@@ -502,12 +504,24 @@ export async function buildSiteFromPlan(plan: SitePlan, options: BuildOptions = 
       })
       const base64 = response?.data?.[0]?.b64_json
       if (base64) {
+        console.log('[site-builder] Image generated, size:', base64.length, 'bytes')
         const uploaded = await uploadImageFromBase64(siteId ? `${siteId}-hero` : `hero-${Date.now()}`, base64)
-        imageSrc = uploaded || (base64.length <= 900_000 ? `data:image/png;base64,${base64}` : undefined)
+        if (uploaded) {
+          console.log('[site-builder] Image uploaded to:', uploaded)
+          imageSrc = uploaded
+        } else {
+          // Fall back to data URI - always use it regardless of size
+          console.log('[site-builder] Image upload failed, using data URI')
+          imageSrc = `data:image/png;base64,${base64}`
+        }
+      } else {
+        console.error('[site-builder] No image data in response')
       }
     } catch (err) {
-      console.error('[site-builder] image generation failed', err)
+      console.error('[site-builder] Image generation failed:', err)
     }
+  } else {
+    console.log('[site-builder] Image generation disabled (includeImage:', includeImage, ')')
   }
 
   const sectionBudget = Math.max(600, Math.round(sizeTokens / Math.max(plan.sections.length, 1)) + 300)
