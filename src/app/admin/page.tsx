@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { cookies } from 'next/headers'
-import { notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import {
   getHistory,
   getRateLimit,
@@ -19,7 +19,10 @@ export default async function AdminPage() {
   if (token) {
     const cs = await cookies()
     const auth = cs.get('admin')?.value
-    if (auth !== token) return notFound()
+    if (auth !== token) {
+      // Redirect to login page instead of 404
+      redirect('/admin/login')
+    }
   }
 
   const latestMeta = await getLatestMeta<any>();
@@ -39,9 +42,16 @@ export default async function AdminPage() {
     <main className="max-w-6xl mx-auto px-4">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">Admin</h1>
-        <form action="/api/pregen" method="post">
-          <button className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium">Generate Now</button>
-        </form>
+        <div className="flex gap-2">
+          <form action="/api/pregen" method="post">
+            <button className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium">Generate Now</button>
+          </form>
+          {token && (
+            <Link href="/admin/login?logout=1" className="px-3 py-1.5 rounded-md bg-gray-600 hover:bg-gray-500 text-white text-sm font-medium">
+              Logout
+            </Link>
+          )}
+        </div>
       </div>
 
       <section className="mb-8">
