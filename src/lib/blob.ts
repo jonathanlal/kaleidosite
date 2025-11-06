@@ -1,4 +1,4 @@
-import { put } from '@vercel/blob'
+import { put, list, del } from '@vercel/blob'
 
 const TOKEN_ENV_KEYS = [
   'BLOB_READ_WRITE_TOKEN',
@@ -71,4 +71,49 @@ export async function uploadJson(name: string, data: any): Promise<string | null
     console.error('[blob] json upload failed', err)
     return null
   }
+}
+
+export async function listAllBlobs(prefix: string = 'kaleidosite/') {
+  const token = getBlobToken()
+  if (!token) return []
+  try {
+    const { blobs } = await list({ prefix, token })
+    return blobs
+  } catch (err) {
+    console.error('[blob] list failed', err)
+    return []
+  }
+}
+
+export async function deleteBlob(url: string) {
+  const token = getBlobToken()
+  if (!token) return false
+  try {
+    await del(url, { token })
+    return true
+  } catch (err) {
+    console.error('[blob] delete failed', err)
+    return false
+  }
+}
+
+export async function deleteSite(siteId: string) {
+  const blobs = await listAllBlobs()
+
+  // Find all blobs associated with this site
+  const siteBlobs = blobs.filter(blob => {
+    const pathname = new URL(blob.url).pathname
+    // Match: /kaleidosite/{siteId}.html, /kaleidosite/{siteId}.json, /kaleidosite/{siteId}-*.png
+    return pathname.includes(`/${siteId}.html`) ||
+           pathname.includes(`/${siteId}.json`) ||
+           pathname.includes(`/${siteId}-`)
+  })
+
+  console.log(`[blob] Deleting ${siteBlobs.length} blobs for site ${siteId}`)
+
+  const results = await Promise.all(siteBlobs.map(blob => deleteBlob(blob.url)))
+  const successCount = results.filter(r => r).length
+
+  console.log(`[blob] Deleted ${successCount}/${siteBlobs.length} blobs`)
+  return successCount
 }

@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { generateAndStore } from '@/lib/generate'
 import { getRedis } from '@/lib/redis'
+import { getQueueSize } from '@/lib/edge-config'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const PREGEN_QUEUE_KEY = 'pregen_queue';
-const PREGEN_QUEUE_SIZE = 5;
 
 export async function POST() {
   const redis = getRedis();
@@ -14,8 +14,9 @@ export async function POST() {
     return NextResponse.json({ ok: false, error: 'Redis not configured' }, { status: 500 });
   }
 
+  const targetQueueSize = await getQueueSize();
   const currentSize = await redis.llen(PREGEN_QUEUE_KEY);
-  const missingSites = PREGEN_QUEUE_SIZE - currentSize;
+  const missingSites = targetQueueSize - currentSize;
 
   if (missingSites > 0) {
     const generationPromises = Array.from({ length: missingSites }, () =>
