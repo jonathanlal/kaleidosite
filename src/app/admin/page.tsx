@@ -13,6 +13,7 @@ import {
 import { getLatestMeta } from '@/lib/data'
 import { getCurrentRateCount } from '@/lib/redis'
 import { SitesManager, ImagesGallery } from './AdminContent'
+import { DEFAULT_PLANNING_PROMPT, DEFAULT_SECTION_PROMPT } from '@/lib/prompts'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -141,16 +142,16 @@ export default async function AdminPage() {
           <form action="/api/config/planning-prompt" method="post" className="space-y-2">
             <textarea
               name="prompt"
-              rows={8}
+              rows={12}
               defaultValue={planningPrompt || ''}
-              placeholder="Leave empty for default prompt..."
-              className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 font-mono text-sm resize-y"
+              placeholder={DEFAULT_PLANNING_PROMPT}
+              className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 font-mono text-xs resize-y"
             />
             <button className="px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium">
               Update Planning Prompt
             </button>
           </form>
-          <div className="text-xs text-white/60">Stored in {storageType}.</div>
+          <div className="text-xs text-white/60">Stored in {storageType}. Clear field and update to reset to default.</div>
         </div>
       </section>
 
@@ -164,16 +165,16 @@ export default async function AdminPage() {
           <form action="/api/config/section-prompt" method="post" className="space-y-2">
             <textarea
               name="prompt"
-              rows={8}
+              rows={12}
               defaultValue={sectionPrompt || ''}
-              placeholder="Leave empty for default prompt..."
-              className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 font-mono text-sm resize-y"
+              placeholder={DEFAULT_SECTION_PROMPT}
+              className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 font-mono text-xs resize-y"
             />
             <button className="px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium">
               Update Section Prompt
             </button>
           </form>
-          <div className="text-xs text-white/60">Stored in {storageType}.</div>
+          <div className="text-xs text-white/60">Stored in {storageType}. Clear field and update to reset to default.</div>
         </div>
       </section>
 

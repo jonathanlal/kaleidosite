@@ -1,6 +1,7 @@
 import { postProcessHtml } from './postprocess'
 import { requireOpenAI, GenUsage } from './openai'
 import { uploadImageFromBase64 } from './blob'
+import { DEFAULT_PLANNING_PROMPT, DEFAULT_SECTION_PROMPT } from './prompts'
 
 const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'dall-e-3'
 
@@ -235,20 +236,7 @@ export async function createSitePlan(seed: string, hint?: string): Promise<SiteP
     required: ['summary', 'slogan', 'vibe', 'motif', 'palette', 'sections', 'includeHeader', 'layoutStyle'],
   }
 
-  const defaultSystemPrompt = 'You are an avant-garde web experience architect with EXTREME creativity. Design WILDLY IMAGINATIVE, feature-rich single-page websites that push boundaries. Each site MUST be COMPLETELY DIFFERENT with unique themes, layouts, and interactions.\n\n' +
-    'CRITICAL RULES:\n' +
-    '- Make sites COMPLEX and FEATURE-PACKED (3-5 sections)\n' +
-    '- Each section needs 3+ unique features and 2+ interactive elements\n' +
-    '- Each section MUST have a unique `id` field (lowercase, no spaces, use hyphens, e.g., "hero", "features", "gallery", "testimonials", "contact")\n' +
-    '- 40% of sites should have NO HEADER (includeHeader: false) for variety\n' +
-    '- Vary layoutStyle dramatically each time: "experimental", "minimalist", "maximalist", "brutalist", "glassmorphic", "retro", "futuristic", "organic", "geometric", "cyberpunk", "vaporwave", "brutalist", "swiss", "memphis"\n' +
-    '- Use BOLD, WILD, unexpected color palettes - avoid common combinations!\n' +
-    '- Vary vibe dramatically: "playful", "serious", "mysterious", "energetic", "calm", "chaotic", "elegant", "edgy", "whimsical", "dark", "light", "corporate", "artistic", "technical"\n' +
-    '- Include diverse section types: galleries, timelines, comparison tables, pricing grids, testimonials, interactive demos, data visualizations, quizzes, animations, parallax effects, carousels, accordions, tabs, modals, etc.\n' +
-    '- IMPORTANT: slogan must be a SHORT COMPOUND WORD (e.g., "NeonPulse", "CyberBloom", "QuantumVibe", "EchoFlux") - NOT a sentence!\n' +
-    '- Be EXTREMELY creative with themes - explore unusual concepts, niches, and ideas\n' +
-    '- NO two sites should feel similar - maximize variation!\n\n' +
-    'Schema: ' + JSON.stringify(schema)
+  const defaultSystemPrompt = DEFAULT_PLANNING_PROMPT + '\n\nSchema: ' + JSON.stringify(schema)
 
   const response = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
@@ -304,19 +292,10 @@ async function generateSectionContent(
   const {getSectionPrompt} = await import('./edge-config')
   const customPrompt = await getSectionPrompt()
 
-  const defaultSystemPrompt =
-    'You are a MASTER front-end designer creating cutting-edge, feature-rich web sections. Output ONLY HTML markup (no wrapping <section> tags). You MUST include inline <style> and/or <script> tags to create:\n\n' +
-    '- Rich interactive elements (buttons, forms, sliders, toggles, animations)\n' +
-    '- Advanced CSS (gradients, transforms, transitions, keyframe animations, grid/flexbox layouts)\n' +
-    '- JavaScript for interactivity (click handlers, animations, data visualization, dynamic effects)\n' +
-    '- Creative layouts (cards, grids, timelines, comparison tables, galleries, tabs, accordions)\n' +
-    '- Micro-interactions and delightful UX details\n\n' +
-    'Make each section visually STUNNING and HIGHLY INTERACTIVE. Use the palette colors creatively. No external resources - everything inline.'
-
   const messages = [
     {
       role: 'system' as const,
-      content: customPrompt || defaultSystemPrompt,
+      content: customPrompt || DEFAULT_SECTION_PROMPT,
     },
     {
       role: 'user' as const,
@@ -461,25 +440,6 @@ nav.site-nav::-webkit-scrollbar-thumb {
   background: var(--color-primary);
   color: #fff;
 }
-main#main {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 36px 24px 120px;
-}
-.section-block {
-  margin: 72px 0;
-  padding: 48px clamp(18px,4vw,42px);
-  border-radius: 32px;
-  background: rgba(12,12,24,0.55);
-  border: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 0 25px 55px rgba(0,0,0,0.35);
-}
-.section-inner {
-  max-width: 840px;
-  margin: 0 auto;
-  display: grid;
-  gap: 24px;
-}
 footer.site-footer {
   padding: 48px 24px 64px;
   text-align: center;
@@ -560,13 +520,8 @@ The image should be bold, eye-catching, and perfectly match this website's uniqu
     const { html, usage } = result
     if (usage) sectionUsages.push(usage)
     if (!html) return
-    sectionHtml.push(
-      `<section id="${plan.sections[i].id}" class="section-block" aria-labelledby="heading-${plan.sections[i].id}">
-        <div class="section-inner">
-          ${html}
-        </div>
-      </section>`
-    )
+    // Let each section define its own layout and styling with Tailwind
+    sectionHtml.push(`<section id="${plan.sections[i].id}">\n${html}\n</section>`)
   })
 
   const nav = plan.sections
@@ -591,11 +546,12 @@ The image should be bold, eye-catching, and perfectly match this website's uniqu
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${plan.slogan}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>${buildCss(plan.palette)}</style>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>${headerHtml}
-  <main id="main" tabindex="-1" style="padding-top: ${mainTopPadding};">
+  <main id="main" tabindex="-1">
     ${sectionHtml.join('\n')}
   </main>
   <footer class="site-footer">
