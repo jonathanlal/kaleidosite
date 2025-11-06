@@ -8,9 +8,11 @@ import {
   getIncludeImage,
   getPlanningPrompt,
   getSectionPrompt,
+  getQueueSize,
 } from '@/lib/edge-config'
 import { getLatestMeta } from '@/lib/data'
 import { getCurrentRateCount } from '@/lib/redis'
+import { SitesManager, ImagesGallery } from './AdminContent'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -34,7 +36,7 @@ export default async function AdminPage() {
   const latestId = latestMeta?.id;
   const latestTs = latestMeta?.ts;
 
-  const [history, limit, count, model, includeImage, planningPrompt, sectionPrompt] = await Promise.all([
+  const [history, limit, count, model, includeImage, planningPrompt, sectionPrompt, queueSize] = await Promise.all([
     getHistory(),
     getRateLimit(),
     getCurrentRateCount(),
@@ -42,6 +44,7 @@ export default async function AdminPage() {
     getIncludeImage(),
     getPlanningPrompt(),
     getSectionPrompt(),
+    getQueueSize(),
   ]);
 
   // Calculate stats
@@ -104,6 +107,27 @@ export default async function AdminPage() {
             <button className="px-3 py-1.5 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium">Update</button>
           </form>
           <div className="text-xs text-white/60">Stored in {storageType}. {hasEdgeConfig ? 'Changes sync across all instances.' : 'Local changes only - not synced to deployments.'}</div>
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-lg font-medium mb-2">Pregeneration Queue Size</h2>
+        <div className="rounded-lg border border-white/10 p-4 bg-white/5 space-y-3">
+          <div>Current: <code>{queueSize}</code> sites</div>
+          <form action="/api/config/queue-size" method="post" className="flex items-center gap-2">
+            <input
+              type="number"
+              name="size"
+              min={1}
+              max={20}
+              defaultValue={queueSize}
+              className="px-2 py-1 rounded-md bg-black/40 border border-white/10 w-20"
+            />
+            <button className="px-3 py-1.5 rounded-md bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-medium">Update</button>
+          </form>
+          <div className="text-xs text-white/60">
+            Number of sites to keep pregenerated in the queue. Background job maintains this count automatically.
+          </div>
         </div>
       </section>
 
@@ -202,33 +226,14 @@ export default async function AdminPage() {
         </div>
       </section>
 
-      <section>
-        <h2 className="text-lg font-medium mb-2">Generation History</h2>
-        <div className="rounded-lg border border-white/10 divide-y divide-white/10 bg-white/5 max-h-[600px] overflow-y-auto">
-          {history.length === 0 ? (
-            <div className="p-4 text-white/70">No sites generated yet. Click "Generate Now" to create your first site!</div>
-          ) : (
-            history.slice(0, 100).map(([id, ts]) => {
-              const timeAgo = Date.now() - ts
-              const minutes = Math.floor(timeAgo / 60000)
-              const hours = Math.floor(timeAgo / 3600000)
-              const days = Math.floor(timeAgo / 86400000)
-              const timeStr = days > 0 ? `${days}d ago` : hours > 0 ? `${hours}h ago` : minutes > 0 ? `${minutes}m ago` : 'just now'
+      <section className="mb-8">
+        <h2 className="text-lg font-medium mb-2">All Generated Sites</h2>
+        <SitesManager />
+      </section>
 
-              return (
-                <div key={id + ts} className="p-3 flex items-center justify-between hover:bg-white/5 transition-colors">
-                  <div className="truncate max-w-[70%]">
-                    <Link className="underline hover:text-primary transition-colors" href={`/site/${id}`}>{id}</Link>
-                  </div>
-                  <div className="text-white/70 text-sm flex items-center gap-2">
-                    <span className="hidden sm:inline">{new Date(ts).toLocaleString()}</span>
-                    <span className="sm:hidden">{timeStr}</span>
-                  </div>
-                </div>
-              )
-            })
-          )}
-        </div>
+      <section>
+        <h2 className="text-lg font-medium mb-2">Generated Images</h2>
+        <ImagesGallery />
       </section>
     </main>
   )

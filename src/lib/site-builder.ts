@@ -228,7 +228,7 @@ export async function createSitePlan(seed: string, hint?: string): Promise<SiteP
               items: { type: 'string' },
             },
           },
-          required: ['title', 'purpose', 'features', 'interactive'],
+          required: ['id', 'title', 'purpose', 'features', 'interactive'],
         },
       },
     },
@@ -239,6 +239,7 @@ export async function createSitePlan(seed: string, hint?: string): Promise<SiteP
     'CRITICAL RULES:\n' +
     '- Make sites COMPLEX and FEATURE-PACKED (3-5 sections)\n' +
     '- Each section needs 3+ unique features and 2+ interactive elements\n' +
+    '- Each section MUST have a unique `id` field (lowercase, no spaces, use hyphens, e.g., "hero", "features", "gallery", "testimonials", "contact")\n' +
     '- 40% of sites should have NO HEADER (includeHeader: false) for variety\n' +
     '- Vary layoutStyle dramatically each time: "experimental", "minimalist", "maximalist", "brutalist", "glassmorphic", "retro", "futuristic", "organic", "geometric", "cyberpunk", "vaporwave", "brutalist", "swiss", "memphis"\n' +
     '- Use BOLD, WILD, unexpected color palettes - avoid common combinations!\n' +

@@ -49,6 +49,36 @@ export async function addToHistory(id: string, ts: number = Date.now()): Promise
   }
 }
 
+export async function getQueueSize(): Promise<number> {
+  try {
+    const v = await get<number>('site_config_queue_size')
+    if (typeof v === 'number' && v > 0) return v
+  } catch {}
+  const local = await localGet<number>('site_config_queue_size')
+  if (typeof local === 'number' && local > 0) return local
+  return 5 // Default to 5
+}
+
+export async function setQueueSize(size: number): Promise<void> {
+  const token = process.env.VERCEL_API_TOKEN
+  const configId = process.env.EDGE_CONFIG_ID
+  if (!token || !configId) {
+    await localSet('site_config_queue_size', size)
+    return
+  }
+  const body = { items: [{ operation: 'upsert', key: 'site_config_queue_size', value: size }] }
+  const res = await fetch(`https://api.vercel.com/v1/edge-config/${configId}/items`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const msg = await res.text()
+    throw new Error(`Edge Config set queue size failed: ${res.status} ${res.statusText} ${msg}`)
+  }
+}
+
 export async function getRateLimit(): Promise<number | null> {
   try {
     const v = await get<number>('site_config_gen_per_min')
