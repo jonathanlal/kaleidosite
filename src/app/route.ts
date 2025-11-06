@@ -34,16 +34,20 @@ async function generateAndServe(req: Request) {
       const ts = Date.now()
       const usage = mergeUsage(planResult.usage, renderUsage)
       const meta = { id: nid, ts, brief: plan.summary, plan, usage, model };
-      
+
       await uploadHtml(`site_${nid}.html`, newHtml);
       await uploadJson(`site_${nid}_meta.json`, meta);
-      
-      // Also trigger background generation to fill the queue
-      fetch(new URL('/api/background-gen', req.url), { method: 'POST' });
+
+      // Add this site to the queue for future requests
+      const redis = getRedis();
+      if (redis) {
+        await redis.lpush(PREGEN_QUEUE_KEY, nid);
+        console.log(`[home] Added generated site ${nid} to queue`);
+      }
 
       return { id: nid, html: newHtml }
     })
-    
+
     return NextResponse.redirect(new URL(`/site/${result.id}`, req.url));
 }
 
@@ -52,12 +56,14 @@ export async function GET(req: Request) {
   if (redis) {
     const siteId = await redis.rpop(PREGEN_QUEUE_KEY);
     if (siteId) {
-      // Trigger a background generation
-      fetch(new URL('/api/background-gen', req.url), { method: 'POST' });
-      // Redirect to the pre-generated site
+      console.log(`[home] Serving pregenerated site ${siteId}, queue size: ${await redis.llen(PREGEN_QUEUE_KEY)}`);
+      // Redirect to the pre-generated site (zero wait time!)
+      // The cron job will automatically refill the queue every minute
       return NextResponse.redirect(new URL(`/site/${siteId}`, req.url));
     }
   }
 
+  // Queue is empty or Redis not available - generate on demand
+  console.log('[home] Queue empty, generating on demand');
   return generateAndServe(req);
 }
