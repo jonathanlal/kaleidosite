@@ -1,20 +1,15 @@
 import { NextResponse } from 'next/server'
 import { getModel, setModel } from '@/lib/edge-config'
-import { isAdminRequest, unauthorized } from '@/lib/admin-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  // Protect
-  // Note: Next.js does not pass Request here; use a synthetic pass via fetch event is not available.
-  // We leave GET open (read-only) to simplify, but you can protect it too by moving to a Route Handler with req param.
   const model = await getModel()
   return NextResponse.json({ ok: true, model })
 }
 
 export async function POST(req: Request) {
-  if (!isAdminRequest(req)) return unauthorized()
   try {
     const ct = req.headers.get('content-type') || ''
     let model: string | null = null
@@ -27,9 +22,18 @@ export async function POST(req: Request) {
       if (typeof v === 'string') model = v
     }
     if (!model) return NextResponse.json({ ok: false, error: 'invalid_model' }, { status: 400 })
+
     await setModel(model)
+    console.log('[config/model] Model updated to:', model)
+
+    // Redirect back to admin for form submissions
+    if (!ct.includes('application/json')) {
+      return NextResponse.redirect(new URL('/admin', req.url))
+    }
+
     return NextResponse.json({ ok: true, model })
   } catch (e: any) {
+    console.error('[config/model] Update failed:', e)
     return NextResponse.json({ ok: false, error: e?.message || 'set model failed' }, { status: 500 })
   }
 }

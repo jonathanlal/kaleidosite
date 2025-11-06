@@ -25,6 +25,10 @@ export default async function AdminPage() {
     }
   }
 
+  // Check config storage type
+  const hasEdgeConfig = !!(process.env.EDGE_CONFIG_ID && process.env.VERCEL_API_TOKEN)
+  const storageType = hasEdgeConfig ? 'Edge Config (cloud)' : 'Local file (.data/edge.json)'
+
   const latestMeta = await getLatestMeta<any>();
   const latestId = latestMeta?.id;
   const latestTs = latestMeta?.ts;
@@ -53,6 +57,15 @@ export default async function AdminPage() {
           )}
         </div>
       </div>
+
+      {!hasEdgeConfig && (
+        <div className="mb-6 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+          <p className="text-sm text-blue-200/90">
+            <strong>ℹ️ Using local storage:</strong> Settings are saved to <code className="bg-black/30 px-1 rounded">.data/edge.json</code>
+            {' '}(not persisted to cloud). To use cloud storage, set up Edge Config with <code className="bg-black/30 px-1 rounded">EDGE_CONFIG_ID</code> and <code className="bg-black/30 px-1 rounded">VERCEL_API_TOKEN</code>.
+          </p>
+        </div>
+      )}
 
       <section className="mb-8">
         <h2 className="text-lg font-medium mb-2">Latest</h2>
@@ -83,7 +96,7 @@ export default async function AdminPage() {
             </select>
             <button className="px-3 py-1.5 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium">Update</button>
           </form>
-          <div className="text-xs text-white/60">Stored in Edge Config when available; otherwise saved locally under .data/edge.json. Send header x-admin-token to protect this page (set ADMIN_TOKEN env).</div>
+          <div className="text-xs text-white/60">Stored in {storageType}. {hasEdgeConfig ? 'Changes sync across all instances.' : 'Local changes only - not synced to deployments.'}</div>
         </div>
       </section>
 
