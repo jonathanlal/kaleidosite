@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getModel, getIncludeImage, getImagePrompt } from '@/lib/edge-config'
+import { getModel, getIncludeImage } from '@/lib/edge-config'
 import { withLock, getRedis } from '@/lib/redis'
 import { createSitePlan, buildSiteFromPlan, mergeUsage } from '@/lib/site-builder'
 import { uploadHtml, uploadJson } from '@/lib/blob'
@@ -23,12 +23,10 @@ async function generateAndServe(req: Request) {
       const model = (await getModel()) || undefined
       if (model) process.env.OPENAI_MODEL = model
       const includeImage = (await getIncludeImage()) || false
-      const imagePrompt = (await getImagePrompt()) || undefined
       const { html: newHtml, usage: renderUsage } = await buildSiteFromPlan(plan, {
         sizeHint: 'medium',
         siteId: nid,
         includeImage,
-        imagePrompt,
         embedControls: false,
       })
       const ts = Date.now()

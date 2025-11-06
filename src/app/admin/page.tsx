@@ -6,7 +6,6 @@ import {
   getRateLimit,
   getModel,
   getIncludeImage,
-  getImagePrompt,
 } from '@/lib/edge-config'
 import { getLatestMeta } from '@/lib/data'
 import { getCurrentRateCount } from '@/lib/redis'
@@ -33,14 +32,18 @@ export default async function AdminPage() {
   const latestId = latestMeta?.id;
   const latestTs = latestMeta?.ts;
 
-  const [history, limit, count, model, includeImage, imagePrompt] = await Promise.all([
+  const [history, limit, count, model, includeImage] = await Promise.all([
     getHistory(),
     getRateLimit(),
     getCurrentRateCount(),
     getModel(),
     getIncludeImage(),
-    getImagePrompt(),
   ]);
+
+  // Calculate stats
+  const totalSites = history.length
+  const last24h = history.filter(([_, ts]) => Date.now() - ts < 24 * 60 * 60 * 1000).length
+  const lastHour = history.filter(([_, ts]) => Date.now() - ts < 60 * 60 * 1000).length
 
   return (
     <main className="max-w-6xl mx-auto px-4">
@@ -105,13 +108,33 @@ export default async function AdminPage() {
         <div className="rounded-lg border border-white/10 p-4 bg-white/5 space-y-3">
           <form action="/api/config/image/include" method="post" className="flex items-center gap-2">
             <input type="checkbox" name="includeImage" defaultChecked={includeImage ?? false} />
-            <label>Include Image</label>
+            <label>Include AI-Generated Hero Images</label>
             <button className="px-3 py-1.5 rounded-md bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium">Update</button>
           </form>
-          <form action="/api/config/image/prompt" method="post" className="flex items-center gap-2">
-            <input type="text" name="imagePrompt" defaultValue={imagePrompt || ''} placeholder="Image prompt" className="px-2 py-1 rounded-md bg-black/40 border border-white/10 w-full" />
-            <button className="px-3 py-1.5 rounded-md bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium">Update</button>
-          </form>
+          <div className="text-xs text-white/60">
+            Images are generated contextually based on each site's unique theme, colors, vibe, and summary.
+            Each site gets a custom image that matches its aesthetic.
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-lg font-medium mb-2">Statistics</h2>
+        <div className="rounded-lg border border-white/10 p-4 bg-white/5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <div className="text-2xl font-bold text-emerald-400">{totalSites}</div>
+              <div className="text-sm text-white/70">Total Sites Generated</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-blue-400">{last24h}</div>
+              <div className="text-sm text-white/70">Last 24 Hours</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-purple-400">{lastHour}</div>
+              <div className="text-sm text-white/70">Last Hour</div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -130,17 +153,30 @@ export default async function AdminPage() {
       </section>
 
       <section>
-        <h2 className="text-lg font-medium mb-2">Recent</h2>
-        <div className="rounded-lg border border-white/10 divide-y divide-white/10 bg-white/5">
+        <h2 className="text-lg font-medium mb-2">Generation History</h2>
+        <div className="rounded-lg border border-white/10 divide-y divide-white/10 bg-white/5 max-h-[600px] overflow-y-auto">
           {history.length === 0 ? (
-            <div className="p-4 text-white/70">No history yet.</div>
+            <div className="p-4 text-white/70">No sites generated yet. Click "Generate Now" to create your first site!</div>
           ) : (
-            history.slice(0, 50).map(([id, ts]) => (
-              <div key={id + ts} className="p-3 flex items-center justify-between">
-                <div className="truncate max-w-[70%]"><Link className="underline" href={`/site/${id}`}>{id}</Link></div>
-                <div className="text-white/70 text-sm">{new Date(ts).toLocaleString()}</div>
-              </div>
-            ))
+            history.slice(0, 100).map(([id, ts]) => {
+              const timeAgo = Date.now() - ts
+              const minutes = Math.floor(timeAgo / 60000)
+              const hours = Math.floor(timeAgo / 3600000)
+              const days = Math.floor(timeAgo / 86400000)
+              const timeStr = days > 0 ? `${days}d ago` : hours > 0 ? `${hours}h ago` : minutes > 0 ? `${minutes}m ago` : 'just now'
+
+              return (
+                <div key={id + ts} className="p-3 flex items-center justify-between hover:bg-white/5 transition-colors">
+                  <div className="truncate max-w-[70%]">
+                    <Link className="underline hover:text-primary transition-colors" href={`/site/${id}`}>{id}</Link>
+                  </div>
+                  <div className="text-white/70 text-sm flex items-center gap-2">
+                    <span className="hidden sm:inline">{new Date(ts).toLocaleString()}</span>
+                    <span className="sm:hidden">{timeStr}</span>
+                  </div>
+                </div>
+              )
+            })
           )}
         </div>
       </section>

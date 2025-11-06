@@ -483,37 +483,42 @@ type BuildOptions = {
   sizeHint?: SizeHint
   siteId?: string
   includeImage?: boolean
-  imagePrompt?: string
   embedControls?: boolean
 }
 
 export async function buildSiteFromPlan(plan: SitePlan, options: BuildOptions = {}) {
-  const { sizeHint = 'medium', siteId, includeImage, imagePrompt } = options
+  const { sizeHint = 'medium', siteId, includeImage } = options
   const sizeTokens = sizeHint === 'small' ? 900 : sizeHint === 'large' ? 1600 : 1200
 
   let imageSrc: string | undefined
   if (includeImage) {
     console.log('[site-builder] Image generation requested for', siteId)
     try {
+      // Generate contextual image prompt based on the site's unique theme and characteristics
+      const contextualPrompt = `Create a vibrant, artistic hero image for a website with this theme:
+
+Summary: ${plan.summary}
+Vibe: ${plan.vibe}
+Visual Motif: ${plan.motif}
+Color Palette: ${plan.palette.name} featuring ${plan.palette.primary}, ${plan.palette.secondary}, ${plan.palette.accent}
+Layout Style: ${plan.layoutStyle || 'dynamic'}
+
+The image should be bold, eye-catching, and perfectly match this website's unique character and aesthetic.`
+
       const response = await requireOpenAI().images.generate({
         model: IMAGE_MODEL,
-        prompt: imagePrompt || plan.summary,
+        prompt: contextualPrompt,
         n: 1,
         size: '1024x1024',
         response_format: 'b64_json',
       })
       const base64 = response?.data?.[0]?.b64_json
       if (base64) {
-        console.log('[site-builder] Image generated, size:', base64.length, 'bytes')
-        const uploaded = await uploadImageFromBase64(siteId ? `${siteId}-hero` : `hero-${Date.now()}`, base64)
-        if (uploaded) {
-          console.log('[site-builder] Image uploaded to:', uploaded)
-          imageSrc = uploaded
-        } else {
-          // Fall back to data URI - always use it regardless of size
-          console.log('[site-builder] Image upload failed, using data URI')
-          imageSrc = `data:image/png;base64,${base64}`
-        }
+        console.log('[site-builder] Image generated contextually, size:', base64.length, 'bytes')
+        // ALWAYS use data URI to avoid CORS issues (status 0 errors)
+        // Blob URLs from different origins cause cross-origin loading failures
+        imageSrc = `data:image/png;base64,${base64}`
+        console.log('[site-builder] Using inline data URI (no CORS issues)')
       } else {
         console.error('[site-builder] No image data in response')
       }

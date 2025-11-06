@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createSitePlan, buildSiteFromPlan, mergeUsage } from '@/lib/site-builder'
-import { getRateLimit, getModel, getIncludeImage, getImagePrompt } from '@/lib/edge-config'
+import { getRateLimit, getModel, getIncludeImage } from '@/lib/edge-config'
 import { withLock, getCurrentRateCount, incrCurrentRate, getRedis } from '@/lib/redis'
 import { uploadHtml, uploadJson } from '@/lib/blob'
 
@@ -33,12 +33,10 @@ export async function POST() {
       const model = (await getModel()) || undefined
       if (model) process.env.OPENAI_MODEL = model
       const includeImage = (await getIncludeImage()) || false
-      const imagePrompt = (await getImagePrompt()) || undefined
       const { html: raw, usage: renderUsage } = await buildSiteFromPlan(plan, {
         sizeHint: 'medium',
         siteId: id,
         includeImage,
-        imagePrompt,
         embedControls: false,
       })
       const html = minifyHtml(raw)
