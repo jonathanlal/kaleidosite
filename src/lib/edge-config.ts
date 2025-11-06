@@ -1,5 +1,6 @@
 import { get } from '@vercel/edge-config'
 import { localGet, localSet } from './local-store'
+import { GenerationStrategy, DEFAULT_GENERATION_STRATEGY } from './generation-strategies'
 
 export type SiteIndexEntry = [id: string, ts: number]
 
@@ -76,6 +77,36 @@ export async function setQueueSize(size: number): Promise<void> {
   if (!res.ok) {
     const msg = await res.text()
     throw new Error(`Edge Config set queue size failed: ${res.status} ${res.statusText} ${msg}`)
+  }
+}
+
+export async function getGenerationStrategy(): Promise<GenerationStrategy> {
+  try {
+    const v = await get<GenerationStrategy>('site_config_generation_strategy')
+    if (v && ['single-pass', 'template-based', 'component-library', 'design-system'].includes(v)) return v
+  } catch {}
+  const local = await localGet<GenerationStrategy>('site_config_generation_strategy')
+  if (local && ['single-pass', 'template-based', 'component-library', 'design-system'].includes(local)) return local
+  return DEFAULT_GENERATION_STRATEGY
+}
+
+export async function setGenerationStrategy(strategy: GenerationStrategy): Promise<void> {
+  const token = process.env.VERCEL_API_TOKEN
+  const configId = process.env.EDGE_CONFIG_ID
+  if (!token || !configId) {
+    await localSet('site_config_generation_strategy', strategy)
+    return
+  }
+  const body = { items: [{ operation: 'upsert', key: 'site_config_generation_strategy', value: strategy }] }
+  const res = await fetch(`https://api.vercel.com/v1/edge-config/${configId}/items`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const msg = await res.text()
+    throw new Error(`Edge Config set generation strategy failed: ${res.status} ${res.statusText} ${msg}`)
   }
 }
 

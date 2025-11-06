@@ -9,11 +9,13 @@ import {
   getPlanningPrompt,
   getSectionPrompt,
   getQueueSize,
+  getGenerationStrategy,
 } from '@/lib/edge-config'
 import { getLatestMeta } from '@/lib/data'
 import { getCurrentRateCount } from '@/lib/redis'
 import { SitesManager, ImagesGallery } from './AdminContent'
 import { DEFAULT_PLANNING_PROMPT, DEFAULT_SECTION_PROMPT } from '@/lib/prompts'
+import { GENERATION_STRATEGIES } from '@/lib/generation-strategies'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -37,7 +39,7 @@ export default async function AdminPage() {
   const latestId = latestMeta?.id;
   const latestTs = latestMeta?.ts;
 
-  const [history, limit, count, model, includeImage, planningPrompt, sectionPrompt, queueSize] = await Promise.all([
+  const [history, limit, count, model, includeImage, planningPrompt, sectionPrompt, queueSize, generationStrategy] = await Promise.all([
     getHistory(),
     getRateLimit(),
     getCurrentRateCount(),
@@ -46,6 +48,7 @@ export default async function AdminPage() {
     getPlanningPrompt(),
     getSectionPrompt(),
     getQueueSize(),
+    getGenerationStrategy(),
   ]);
 
   // Calculate stats
@@ -108,6 +111,34 @@ export default async function AdminPage() {
             <button className="px-3 py-1.5 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium">Update</button>
           </form>
           <div className="text-xs text-white/60">Stored in {storageType}. {hasEdgeConfig ? 'Changes sync across all instances.' : 'Local changes only - not synced to deployments.'}</div>
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-lg font-medium mb-2">Generation Strategy</h2>
+        <div className="rounded-lg border border-white/10 p-4 bg-white/5 space-y-3">
+          <div>Current: <code>{generationStrategy}</code></div>
+          <form action="/api/config/generation-strategy" method="post" className="space-y-3">
+            {Object.entries(GENERATION_STRATEGIES).map(([key, info]) => (
+              <label key={key} className="flex items-start gap-3 cursor-pointer hover:bg-white/5 p-3 rounded-lg transition-colors">
+                <input
+                  type="radio"
+                  name="strategy"
+                  value={key}
+                  defaultChecked={generationStrategy === key}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <div className="font-medium mb-1">{info.name}</div>
+                  <div className="text-sm text-white/60">{info.description}</div>
+                </div>
+              </label>
+            ))}
+            <button className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium">
+              Update Strategy
+            </button>
+          </form>
+          <div className="text-xs text-white/60">Stored in {storageType}. Changes apply to all future site generations.</div>
         </div>
       </section>
 

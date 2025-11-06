@@ -1,17 +1,16 @@
 import { uploadHtml, uploadJson } from './blob'
-import { createSitePlan, buildSiteFromPlan, mergeUsage } from './site-builder'
+import { mergeUsage } from './site-builder'
 import { getModel, getIncludeImage, addToHistory } from './edge-config'
+import { generateSite } from './strategies'
 
 export async function generateAndStore(id: string): Promise<{ id: string; html: string; brief: string }> {
-  const planResult = await createSitePlan(id)
-  const plan = planResult.plan
-
   // Respect config options
   const model = (await getModel()) || undefined
   if (model) process.env.OPENAI_MODEL = model
   const includeImage = (await getIncludeImage()) || false
 
-  const { html: raw, usage: renderUsage } = await buildSiteFromPlan(plan, {
+  // Use strategy router to generate site
+  const { plan, html: raw, usage } = await generateSite(id, undefined, {
     sizeHint: 'medium',
     siteId: id,
     includeImage,
@@ -20,7 +19,6 @@ export async function generateAndStore(id: string): Promise<{ id: string; html: 
 
   const html = minifyHtml(raw)
   const ts = Date.now()
-  const usage = mergeUsage(planResult.usage, renderUsage)
   const meta = { id, ts, brief: plan.summary, plan, usage, model }
 
   // Store both HTML and metadata
