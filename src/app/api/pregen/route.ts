@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createSitePlan, buildSiteFromPlan, mergeUsage } from '@/lib/site-builder'
-import { getRateLimit, getModel, getIncludeImage } from '@/lib/edge-config'
+import { getRateLimit, getModel, getIncludeImage, addToHistory } from '@/lib/edge-config'
 import { withLock, getCurrentRateCount, incrCurrentRate, getRedis } from '@/lib/redis'
 import { uploadHtml, uploadJson } from '@/lib/blob'
 
@@ -54,6 +54,9 @@ export async function POST() {
       if (redis) {
         await redis.lpush(PREGEN_QUEUE_KEY, id);
       }
+
+      // Add to history
+      await addToHistory(id, ts)
 
       return { id, ts, usage }
     })

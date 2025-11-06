@@ -178,6 +178,9 @@ function ensureImage(html: string, imageSrc?: string) {
 
 export async function createSitePlan(seed: string, hint?: string): Promise<SitePlanResult> {
   const openai = requireOpenAI()
+  const {getPlanningPrompt} = await import('./edge-config')
+  const customPrompt = await getPlanningPrompt()
+
   const schema = {
     type: 'object',
     additionalProperties: false,
@@ -232,29 +235,35 @@ export async function createSitePlan(seed: string, hint?: string): Promise<SiteP
     required: ['summary', 'slogan', 'vibe', 'motif', 'palette', 'sections', 'includeHeader', 'layoutStyle'],
   }
 
+  const defaultSystemPrompt = 'You are an avant-garde web experience architect with EXTREME creativity. Design WILDLY IMAGINATIVE, feature-rich single-page websites that push boundaries. Each site MUST be COMPLETELY DIFFERENT with unique themes, layouts, and interactions.\n\n' +
+    'CRITICAL RULES:\n' +
+    '- Make sites COMPLEX and FEATURE-PACKED (3-5 sections)\n' +
+    '- Each section needs 3+ unique features and 2+ interactive elements\n' +
+    '- 40% of sites should have NO HEADER (includeHeader: false) for variety\n' +
+    '- Vary layoutStyle dramatically each time: "experimental", "minimalist", "maximalist", "brutalist", "glassmorphic", "retro", "futuristic", "organic", "geometric", "cyberpunk", "vaporwave", "brutalist", "swiss", "memphis"\n' +
+    '- Use BOLD, WILD, unexpected color palettes - avoid common combinations!\n' +
+    '- Vary vibe dramatically: "playful", "serious", "mysterious", "energetic", "calm", "chaotic", "elegant", "edgy", "whimsical", "dark", "light", "corporate", "artistic", "technical"\n' +
+    '- Include diverse section types: galleries, timelines, comparison tables, pricing grids, testimonials, interactive demos, data visualizations, quizzes, animations, parallax effects, carousels, accordions, tabs, modals, etc.\n' +
+    '- IMPORTANT: slogan must be a SHORT COMPOUND WORD (e.g., "NeonPulse", "CyberBloom", "QuantumVibe", "EchoFlux") - NOT a sentence!\n' +
+    '- Be EXTREMELY creative with themes - explore unusual concepts, niches, and ideas\n' +
+    '- NO two sites should feel similar - maximize variation!\n\n' +
+    'Schema: ' + JSON.stringify(schema)
+
   const response = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
-    temperature: 1.4,
+    temperature: 1.6,
+    top_p: 0.95,
+    frequency_penalty: 1.2,
+    presence_penalty: 1.0,
     response_format: { type: 'json_object' },
     messages: [
       {
         role: 'system',
-        content:
-          'You are an avant-garde web experience architect with unlimited creativity. Design WILDLY IMAGINATIVE, feature-rich single-page websites that push boundaries. Each site should be COMPLETELY DIFFERENT with unique themes, layouts, and interactions.\n\n' +
-          'CRITICAL RULES:\n' +
-          '- Make sites COMPLEX and FEATURE-PACKED (3-5 sections)\n' +
-          '- Each section needs 3+ unique features and 2+ interactive elements\n' +
-          '- 40% of sites should have NO HEADER (includeHeader: false) for variety\n' +
-          '- Vary layoutStyle dramatically: "experimental", "minimalist", "maximalist", "brutalist", "glassmorphic", "retro", "futuristic", "organic", "geometric"\n' +
-          '- Use BOLD, unexpected color palettes - no defaults!\n' +
-          '- Include diverse section types: galleries, timelines, comparison tables, pricing grids, testimonials, interactive demos, data visualizations, quizzes, animations, parallax effects, etc.\n' +
-          '- IMPORTANT: slogan must be a SHORT COMPOUND WORD (e.g., "NeonPulse", "CyberBloom", "QuantumVibe", "EchoFlux") - NOT a sentence!\n' +
-          '- Make each site feel like a completely unique artistic creation\n\n' +
-          'Schema: ' + JSON.stringify(schema),
+        content: customPrompt || defaultSystemPrompt,
       },
       {
         role: 'user',
-        content: `Seed: ${seed}\n\nCreate an EXTRAORDINARY single-page experience. Push creative boundaries. Make it unlike anything else. ${hint || 'Surprise me with something completely unexpected and feature-rich!'}\n\nReturn ONLY valid JSON matching the schema.`,
+        content: `Seed: ${seed}\n\nCreate an EXTRAORDINARY, UNIQUE single-page experience that's COMPLETELY DIFFERENT from anything you've created before. Push creative boundaries to the MAX. ${hint || 'Surprise me with something wild, unexpected, and feature-rich!'}\n\nReturn ONLY valid JSON matching the schema.`,
       },
     ],
   })
@@ -290,17 +299,23 @@ async function generateSectionContent(
     section.interactive.push('Add hover/tap interactions', 'Include smooth animations or transitions')
   }
 
+  // Load custom section prompt if available
+  const {getSectionPrompt} = await import('./edge-config')
+  const customPrompt = await getSectionPrompt()
+
+  const defaultSystemPrompt =
+    'You are a MASTER front-end designer creating cutting-edge, feature-rich web sections. Output ONLY HTML markup (no wrapping <section> tags). You MUST include inline <style> and/or <script> tags to create:\n\n' +
+    '- Rich interactive elements (buttons, forms, sliders, toggles, animations)\n' +
+    '- Advanced CSS (gradients, transforms, transitions, keyframe animations, grid/flexbox layouts)\n' +
+    '- JavaScript for interactivity (click handlers, animations, data visualization, dynamic effects)\n' +
+    '- Creative layouts (cards, grids, timelines, comparison tables, galleries, tabs, accordions)\n' +
+    '- Micro-interactions and delightful UX details\n\n' +
+    'Make each section visually STUNNING and HIGHLY INTERACTIVE. Use the palette colors creatively. No external resources - everything inline.'
+
   const messages = [
     {
       role: 'system' as const,
-      content:
-        'You are a MASTER front-end designer creating cutting-edge, feature-rich web sections. Output ONLY HTML markup (no wrapping <section> tags). You MUST include inline <style> and/or <script> tags to create:\n\n' +
-        '- Rich interactive elements (buttons, forms, sliders, toggles, animations)\n' +
-        '- Advanced CSS (gradients, transforms, transitions, keyframe animations, grid/flexbox layouts)\n' +
-        '- JavaScript for interactivity (click handlers, animations, data visualization, dynamic effects)\n' +
-        '- Creative layouts (cards, grids, timelines, comparison tables, galleries, tabs, accordions)\n' +
-        '- Micro-interactions and delightful UX details\n\n' +
-        'Make each section visually STUNNING and HIGHLY INTERACTIVE. Use the palette colors creatively. No external resources - everything inline.',
+      content: customPrompt || defaultSystemPrompt,
     },
     {
       role: 'user' as const,

@@ -1,6 +1,6 @@
 import { uploadHtml, uploadJson } from './blob'
 import { createSitePlan, buildSiteFromPlan, mergeUsage } from './site-builder'
-import { getModel, getIncludeImage } from './edge-config'
+import { getModel, getIncludeImage, addToHistory } from './edge-config'
 
 export async function generateAndStore(id: string): Promise<{ id: string; html: string; brief: string }> {
   const planResult = await createSitePlan(id)
@@ -26,6 +26,9 @@ export async function generateAndStore(id: string): Promise<{ id: string; html: 
   // Store both HTML and metadata
   await uploadHtml(`site_${id}.html`, html)
   await uploadJson(`site_${id}_meta.json`, meta)
+
+  // Add to history
+  await addToHistory(id, ts)
 
   return { id, html, brief: plan.summary }
 }

@@ -6,6 +6,8 @@ import {
   getRateLimit,
   getModel,
   getIncludeImage,
+  getPlanningPrompt,
+  getSectionPrompt,
 } from '@/lib/edge-config'
 import { getLatestMeta } from '@/lib/data'
 import { getCurrentRateCount } from '@/lib/redis'
@@ -32,12 +34,14 @@ export default async function AdminPage() {
   const latestId = latestMeta?.id;
   const latestTs = latestMeta?.ts;
 
-  const [history, limit, count, model, includeImage] = await Promise.all([
+  const [history, limit, count, model, includeImage, planningPrompt, sectionPrompt] = await Promise.all([
     getHistory(),
     getRateLimit(),
     getCurrentRateCount(),
     getModel(),
     getIncludeImage(),
+    getPlanningPrompt(),
+    getSectionPrompt(),
   ]);
 
   // Calculate stats
@@ -100,6 +104,52 @@ export default async function AdminPage() {
             <button className="px-3 py-1.5 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium">Update</button>
           </form>
           <div className="text-xs text-white/60">Stored in {storageType}. {hasEdgeConfig ? 'Changes sync across all instances.' : 'Local changes only - not synced to deployments.'}</div>
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-lg font-medium mb-2">Planning Prompt</h2>
+        <div className="rounded-lg border border-white/10 p-4 bg-white/5 space-y-3">
+          <div className="text-sm text-white/70">
+            This system prompt is used when generating the initial site plan (structure, sections, colors, vibe, etc.).
+            Leave empty to use the default prompt.
+          </div>
+          <form action="/api/config/planning-prompt" method="post" className="space-y-2">
+            <textarea
+              name="prompt"
+              rows={8}
+              defaultValue={planningPrompt || ''}
+              placeholder="Leave empty for default prompt..."
+              className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 font-mono text-sm resize-y"
+            />
+            <button className="px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium">
+              Update Planning Prompt
+            </button>
+          </form>
+          <div className="text-xs text-white/60">Stored in {storageType}.</div>
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-lg font-medium mb-2">Section Prompt</h2>
+        <div className="rounded-lg border border-white/10 p-4 bg-white/5 space-y-3">
+          <div className="text-sm text-white/70">
+            This system prompt is used when generating each individual section's HTML content.
+            Leave empty to use the default prompt.
+          </div>
+          <form action="/api/config/section-prompt" method="post" className="space-y-2">
+            <textarea
+              name="prompt"
+              rows={8}
+              defaultValue={sectionPrompt || ''}
+              placeholder="Leave empty for default prompt..."
+              className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 font-mono text-sm resize-y"
+            />
+            <button className="px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium">
+              Update Section Prompt
+            </button>
+          </form>
+          <div className="text-xs text-white/60">Stored in {storageType}.</div>
         </div>
       </section>
 
